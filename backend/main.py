@@ -101,6 +101,42 @@ async def detect_plant(file: UploadFile = File(...)):
     if detections:
         primary_match = detections[0]["plant_name"]
         disease = detections[0]["disease_detected"]
+        
+        # Connect to DB to check and dynamically register custom plant type if missing
+        if primary_match.lower() != "human face":
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM plants WHERE LOWER(name) = LOWER(?);", (primary_match,))
+            plant_exists = cursor.fetchone()
+            
+            if not plant_exists:
+                # Insert default template for the newly detected plant
+                cursor.execute("""
+                    INSERT INTO plants (name, watering_days, light, humidity, temperature, fertilizer)
+                    VALUES (?, 5, 'bright indirect light', 'medium', '18-28', 'monthly');
+                """, (primary_match,))
+                conn.commit()
+                
+                # Insert standard recommended care questions for this plant
+                q_data = [
+                    (primary_match, "How often should I water this plant?", 
+                     f"Water your {primary_match} every 5 days or when the top 2 inches of soil feel dry. Avoid overwatering."),
+                    (primary_match, "What sunlight does it need?", 
+                     f"It thrives in bright, indirect sunlight. Keep it away from harsh, direct rays to prevent leaf scorch."),
+                    (primary_match, "Why are leaves turning yellow?", 
+                     "Yellowing leaves are typically a sign of overwatering or soil drainage issues. Let soil dry out fully between waterings."),
+                    (primary_match, "How to grow it faster?", 
+                     f"Provide bright indirect light, water consistently when dry, and feed with balanced liquid fertilizer monthly."),
+                    (primary_match, "Best soil type?", 
+                     "A well-draining organic potting soil mixed with perlite or pumice to ensure good root aeration.")
+                ]
+                cursor.executemany("""
+                    INSERT OR IGNORE INTO plant_questions (plant_name, question, answer)
+                    VALUES (?, ?, ?);
+                """, q_data)
+                conn.commit()
+            conn.close()
+            
         recommended_questions = get_recommended_questions(primary_match, disease)
         
     # Relative path for image retrieval

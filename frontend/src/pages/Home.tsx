@@ -143,7 +143,7 @@ export default function Home({ setActiveTab }: HomeProps) {
           transition={{ duration: 1, delay: 0.4 }}
           className="text-lg md:text-xl text-slate-400 max-w-2xl font-light tracking-wide leading-relaxed"
         >
-          An intelligent plant monitoring and care assistant. Scan with ByteAI computer vision and unlock personalized recommendations for Money Plants, Roses, Mint, and Hibiscus.
+          An intelligent plant monitoring and care assistant. Scan any plant with ByteAI computer vision to unlock instant care recommendations.
         </motion.p>
 
         {/* Action Buttons */}

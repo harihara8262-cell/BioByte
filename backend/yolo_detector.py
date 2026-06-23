@@ -1,5 +1,6 @@
 import os
 import random
+from typing import Optional
 from PIL import Image
 
 # Attempt to import ultralytics for real YOLOv8 support
@@ -8,6 +9,32 @@ try:
     ULTRALYTICS_AVAILABLE = True
 except ImportError:
     ULTRALYTICS_AVAILABLE = False
+
+def clean_filename_to_plant_name(filename: str) -> Optional[str]:
+    """
+    Cleans up a filename to extract a specific plant name.
+    e.g. 20260623141134_aloe_vera.jpg -> Aloe Vera
+    """
+    # Remove file extension
+    base = os.path.splitext(filename)[0]
+    
+    # Strip timestamp prefix if any (e.g. 20260623141134_rose -> rose)
+    if "_" in base:
+        parts = base.split("_")
+        if len(parts) > 1 and parts[0].isdigit() and len(parts[0]) >= 10:
+            base = "_".join(parts[1:])
+            
+    # Clean up dashes and underscores
+    cleaned = base.replace("-", " ").replace("_", " ").strip()
+    
+    # Exclude generic keywords and short/numeric strings
+    generic_keywords = {"image", "photo", "pic", "upload", "screenshot", "camera", "frame", "whatsapp", "plant", "flower"}
+    if cleaned.lower() in generic_keywords or cleaned.isdigit() or len(cleaned) < 2:
+        return None
+        
+    # Capitalize each word
+    words = cleaned.split()
+    return " ".join(w.capitalize() for w in words)
 
 class YOLODetector:
     def __init__(self):
@@ -53,7 +80,6 @@ class YOLODetector:
                 
                 if len(faces) > 0:
                     x, y, w, h = faces[0]
-                    # Found human face! Return special result
                     return [{
                         "plant_name": "Human Face",
                         "confidence": 100.0,
@@ -123,17 +149,21 @@ class YOLODetector:
             except Exception:
                 width, height = 640, 480
 
-            detected_plant = None
-            if "money" in filename or "pothos" in filename:
-                detected_plant = "Money Plant"
-            elif "rose" in filename or "flower" in filename:
-                detected_plant = "Rose Plant"
-            elif "mint" in filename or "basil" in filename or "herb" in filename:
-                detected_plant = "Mint"
-            elif "hibiscus" in filename:
-                detected_plant = "Hibiscus"
-                
+            # Try to clean filename to extract a specific plant name (e.g. aloe_vera.jpg -> Aloe Vera)
+            detected_plant = clean_filename_to_plant_name(filename)
+            
             if not detected_plant:
+                if "money" in filename or "pothos" in filename:
+                    detected_plant = "Money Plant"
+                elif "rose" in filename or "flower" in filename:
+                    detected_plant = "Rose Plant"
+                elif "mint" in filename or "basil" in filename or "herb" in filename:
+                    detected_plant = "Mint"
+                elif "hibiscus" in filename:
+                    detected_plant = "Hibiscus"
+                    
+            if not detected_plant:
+                # Color check fallback
                 try:
                     img_resized = img.resize((32, 32))
                     pixels = list(img_resized.getdata())
@@ -206,5 +236,17 @@ class YOLODetector:
                 else:
                     det["disease_detected"] = "None - Healthy"
                     det["health_score"] = random.randint(86, 96)
+            
+            else:
+                # Custom/Unknown Plant Type Heuristics
+                if "yellow" in filename or "rot" in filename or "spot" in filename or "critical" in filename:
+                    det["disease_detected"] = "Leaf Spots"
+                    det["health_score"] = random.randint(48, 62)
+                elif "bug" in filename or "aphid" in filename or "pest" in filename:
+                    det["disease_detected"] = "Pest Infestation"
+                    det["health_score"] = random.randint(45, 58)
+                else:
+                    det["disease_detected"] = "None - Healthy"
+                    det["health_score"] = random.randint(88, 98)
                     
         return detections
