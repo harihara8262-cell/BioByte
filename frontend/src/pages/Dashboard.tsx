@@ -6,9 +6,11 @@ import {
   Cpu, 
   ArrowUpRight, 
   Info,
-  Calendar,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  CloudRain,
+  AlertTriangle,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -22,6 +24,23 @@ interface PlantTemplate {
   fertilizer: string;
 }
 
+interface WeatherData {
+  temperature: number;
+  humidity: number;
+  rain_probability: number;
+  sunlight_intensity: string;
+  forecast: string;
+  recommendation: string;
+}
+
+interface AlertItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  severity: string;
+}
+
 interface DashboardProps {
   setActiveTab: (tab: string) => void;
 }
@@ -29,54 +48,70 @@ interface DashboardProps {
 export default function Dashboard({ setActiveTab }: DashboardProps) {
   const [templates, setTemplates] = useState<PlantTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [weather, setWeatherData] = useState<WeatherData | null>(null);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [stats, setStats] = useState({
     totalPlants: 0,
     waterOverdue: 0,
     excellentHealth: 0
   });
 
+  const fetchData = async () => {
+    try {
+      // 1. Fetch plant templates
+      const templatesRes = await fetch("http://localhost:8000/api/plants");
+      if (templatesRes.ok) {
+        const data = await templatesRes.json();
+        setTemplates(data);
+      }
+
+      // 2. Fetch active garden stats
+      const myPlantsRes = await fetch("http://localhost:8000/api/my-plants");
+      if (myPlantsRes.ok) {
+        const myPlants = await myPlantsRes.json();
+        const overdue = myPlants.filter((p: any) => p.water_overdue).length;
+        const excellent = myPlants.filter((p: any) => p.health_status.toLowerCase() === "excellent").length;
+        setStats({
+          totalPlants: myPlants.length,
+          waterOverdue: overdue,
+          excellentHealth: excellent
+        });
+      }
+
+      // 3. Fetch Weather AI Engine
+      const weatherRes = await fetch("http://localhost:8000/api/weather");
+      if (weatherRes.ok) {
+        const weatherData = await weatherRes.json();
+        setWeatherData(weatherData);
+      }
+
+      // 4. Fetch Alerts / Notifications
+      const alertsRes = await fetch("http://localhost:8000/api/notifications");
+      if (alertsRes.ok) {
+        const notifs = await alertsRes.json();
+        // Filter only weather alerts or disease alerts
+        const systemAlerts = notifs.filter(
+          (n: any) => n.type === "weather_alert" || n.type === "disease_alert"
+        );
+        setAlerts(systemAlerts);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch dashboard data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTemplates = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/api/plants");
-        if (res.ok) {
-          const data = await res.json();
-          setTemplates(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch templates", err);
-      }
-    };
-
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/api/my-plants");
-        if (res.ok) {
-          const myPlants = await res.json();
-          const overdue = myPlants.filter((p: any) => p.water_overdue).length;
-          const excellent = myPlants.filter((p: any) => p.health_status.toLowerCase() === "excellent").length;
-          setStats({
-            totalPlants: myPlants.length,
-            waterOverdue: overdue,
-            excellentHealth: excellent
-          });
-        }
-      } catch (err) {
-        console.error("Failed to fetch dashboard stats", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTemplates();
-    fetchStats();
+    fetchData();
   }, []);
 
   const systemMetrics = [
     { label: "Nursery Soil Temp", value: "23.4°C", icon: Thermometer, color: "text-bio-emerald", desc: "Optimal bounds 18-28°C" },
-    { label: "Ambient Humidity", value: "62%", icon: Droplets, color: "text-blue-400", desc: "Ideal for tropical growth" },
-    { label: "AI Engine Status", value: "Active", icon: Cpu, color: "text-bio-glow-green animate-pulse", desc: "YOLOv8 online" },
-    { label: "Daily Sunlight Average", value: "6.2 Hrs", icon: Sun, color: "text-amber-400", desc: "Partial to full conditions" }
+    { label: "Ambient Humidity", value: weather ? `${weather.humidity}%` : "60%", icon: Droplets, color: "text-blue-450", desc: "Ideal for tropical growth" },
+    { label: "AI Engine Status", value: "Active", icon: Cpu, color: "text-bio-glow-green animate-pulse", desc: "YOLOv8 & Weather AI active" },
+    { label: "Daily Sunlight Average", value: weather ? weather.sunlight_intensity : "High", icon: Sun, color: "text-amber-450", desc: "Optimal solar exposure" }
   ];
 
   const tips = [
@@ -106,7 +141,7 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
               Welcome back, Botanist
             </h2>
             <p className="text-sm text-slate-400 font-light">
-              Here is your BioByte smart nursery diagnostics and database telemetry.
+              Telemetry indicators, active sensor feeds, and Weather AI engine updates.
             </p>
           </div>
           
@@ -137,6 +172,90 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
               <p className="text-xs text-slate-300 font-light mt-0.5 transition-opacity duration-500">
                 {tips[activeTip]}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Top: Weather AI Engine & Active Alert Banners */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Weather AI Widget */}
+          <div className="lg:col-span-7 glass-panel p-6 rounded-3xl flex flex-col gap-4 relative overflow-hidden group border-bio-emerald/30 bg-gradient-to-tr from-bio-dark-green/20 to-transparent">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-bio-emerald/5 rounded-full blur-3xl" />
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-[9px] uppercase font-bold tracking-widest bg-bio-emerald/10 text-bio-light-emerald px-2 py-0.5 rounded-full border border-bio-emerald/20">
+                  Live Feed
+                </span>
+                <h3 className="text-base font-extrabold text-white mt-1.5 flex items-center gap-2">
+                  <Sun className="w-5 h-5 text-amber-400" />
+                  Weather AI Engine
+                </h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">
+                {weather ? weather.forecast : "Scattered Clouds"}
+              </span>
+            </div>
+
+            {weather && (
+              <div className="grid grid-cols-3 gap-4 border-y border-bio-card-border/10 py-4 mt-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium">Temperature</span>
+                  <span className="text-lg font-black text-white mt-0.5">{weather.temperature}°C</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium">Humidity</span>
+                  <span className="text-lg font-black text-white mt-0.5">{weather.humidity}%</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-500 font-medium">Rain Prob.</span>
+                  <span className="text-lg font-black text-bio-light-emerald mt-0.5 flex items-center gap-1">
+                    <CloudRain className="w-4 h-4" />
+                    {weather.rain_probability}%
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {weather && (
+              <div className="text-[11px] text-slate-300 font-light bg-bio-black/40 border border-bio-card-border/15 p-3 rounded-xl leading-relaxed mt-1">
+                <span className="font-bold text-bio-light-emerald">AI Care Directive:</span> {weather.recommendation}
+              </div>
+            )}
+          </div>
+
+          {/* Active Alerts Panel */}
+          <div className="lg:col-span-5 glass-panel p-6 rounded-3xl flex flex-col gap-4 relative">
+            <div>
+              <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                Active System Alerts
+              </h3>
+              <p className="text-[10px] text-slate-500 font-light mt-0.5">Critical atmospheric or disease threats detected</p>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1 mt-2">
+              {alerts.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 font-light">
+                  Nursery environments are healthy. No active threat banners.
+                </div>
+              ) : (
+                alerts.map((alert) => (
+                  <div 
+                    key={alert.id}
+                    className={`p-3 rounded-xl border flex gap-2 items-start text-xs ${
+                      alert.severity === "critical" 
+                        ? "bg-red-950/15 border-red-500/25 text-red-400" 
+                        : "bg-amber-950/15 border-amber-500/25 text-amber-400"
+                    }`}
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold">{alert.title}</span>
+                      <span className="text-[10px] text-slate-400 leading-normal">{alert.message}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -227,7 +346,7 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
             )}
           </div>
 
-          {/* Right Column: Mini Care Summary & Quick Actions */}
+          {/* Right Column: Mini Care Summary & Community Forum Link */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             
             {/* Quick Stats Panel */}
@@ -235,19 +354,16 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">Garden Telemetry</h3>
               
               <div className="flex flex-col gap-4">
-                {/* Stat 1 */}
                 <div className="flex justify-between items-center border-b border-bio-card-border/10 pb-3">
                   <span className="text-xs text-slate-400 font-light">Total Plants Monitored</span>
                   <span className="text-base font-bold text-white">{stats.totalPlants}</span>
                 </div>
-                {/* Stat 2 */}
                 <div className="flex justify-between items-center border-b border-bio-card-border/10 pb-3">
                   <span className="text-xs text-slate-400 font-light">Water Alert Count</span>
                   <span className={`text-base font-bold ${stats.waterOverdue > 0 ? "text-amber-400 glow-text" : "text-white"}`}>
                     {stats.waterOverdue}
                   </span>
                 </div>
-                {/* Stat 3 */}
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-400 font-light">Excellent Health Index</span>
                   <span className="text-base font-bold text-bio-glow-green">{stats.excellentHealth}</span>
@@ -263,20 +379,20 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
               </button>
             </div>
 
-            {/* Quick Scanner shortcut */}
-            <div className="glass-panel p-6 rounded-3xl border-bio-emerald/20 bg-gradient-to-br from-bio-dark-green/30 to-transparent flex flex-col gap-4">
+            {/* Quick Community Network Connection */}
+            <div className="glass-panel p-6 rounded-3xl border-bio-card-border/15 bg-gradient-to-br from-bio-dark-green/10 to-transparent flex flex-col gap-4 relative overflow-hidden">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-bio-light-emerald animate-pulse" />
-                YOLOv8 Computer Vision
+                <Users className="w-4 h-4 text-bio-light-emerald" />
+                Community Network
               </h3>
               <p className="text-[11px] text-slate-400 font-light leading-relaxed">
-                Identify Money Plants, Roses, Mint, and Hibiscus instantly with 98% accuracy.
+                Connect with professional greenkeepers, rate care advice, and review foliar disease treatments.
               </p>
               <button
-                onClick={() => setActiveTab("scanner")}
-                className="w-full py-3 bg-gradient-to-r from-bio-emerald to-emerald-600 text-bio-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-neon-emerald hover:scale-[1.01] transition-transform"
+                onClick={() => setActiveTab("community")}
+                className="w-full py-3 bg-gradient-to-r from-bio-emerald to-emerald-600 text-bio-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-neon-emerald hover:scale-[1.01] transition-transform animate-pulse"
               >
-                Launch Scanner Mode
+                Enter Community Forum
               </button>
             </div>
             

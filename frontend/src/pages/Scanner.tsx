@@ -8,7 +8,10 @@ import {
   Plus, 
   Check, 
   Loader2, 
-  AlertCircle 
+  AlertCircle,
+  AlertTriangle,
+  Heart,
+  Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,6 +26,8 @@ interface DetectionResult {
   plant_name: string;
   confidence: number;
   box: DetectionBox;
+  disease_detected: string;
+  health_score: number;
 }
 
 interface PlantQuestion {
@@ -59,7 +64,6 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
   // Add Plant Dialog State
   const [showAddModal, setShowAddModal] = useState(false);
   const [customName, setCustomName] = useState("");
-  const [plantHealth, setPlantHealth] = useState("Good");
   const [addingPlant, setAddingPlant] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +73,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
     "Initializing YOLOv8 object detection engine...",
     "Extracting foliage pixel grids...",
     "Running CNN neural classification...",
+    "Checking for human biometrics...",
     "Querying care recommendation database...",
     "Formatting diagnostic insights..."
   ];
@@ -166,10 +171,21 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
     if (!result || !result.detections || result.detections.length === 0) return;
     
     setAddingPlant(true);
-    const plantName = result.detections[0].plant_name;
+    const primary = result.detections[0];
+    const plantName = primary.plant_name;
     
+    // Determine status from health score
+    let computedStatus = "Excellent";
+    if (primary.health_score < 50) {
+      computedStatus = "Needs Attention";
+    } else if (primary.health_score < 75) {
+      computedStatus = "Good";
+    } else if (primary.health_score < 35) {
+      computedStatus = "Critical";
+    }
+
     try {
-      // 1. Fetch available plant templates to find matching plant ID
+      // 1. Fetch available plant templates
       const templatesRes = await fetch("http://localhost:8000/api/plants");
       if (!templatesRes.ok) throw new Error("Could not fetch plant templates");
       const templates = await templatesRes.json();
@@ -182,32 +198,44 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
         throw new Error(`Plant type '${plantName}' not found in templates database.`);
       }
       
-      // 2. Add to User's Active Plants
+      // 2. Add to User's Active Plants with AI diagnostics
       const addRes = await fetch("http://localhost:8000/api/my-plants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plant_id: matchedTemplate.id,
           custom_name: customName || matchedTemplate.name,
-          health_status: plantHealth,
+          health_status: computedStatus,
           last_watered: new Date().toISOString(),
           last_fertilized: new Date().toISOString(),
-          notes: `Added from AI Scanner detection on ${new Date().toLocaleDateString()}`,
-          image_url: result.image_url
+          notes: `Added from AI Scanner detection of ${primary.disease_detected} on ${new Date().toLocaleDateString()}`,
+          image_url: result.image_url,
+          health_score: primary.health_score,
+          disease_detected: primary.disease_detected,
+          growth_stage: "Vegetative",
+          age_days: 1
         })
       });
       
       if (!addRes.ok) throw new Error("Could not add plant to dashboard.");
       
       setShowAddModal(false);
-      // Redirect to plants view
-      setActiveTab("myplants");
+      setActiveTab("allplants");
     } catch (err: any) {
       alert(err.message || "Could not add plant.");
     } finally {
       setAddingPlant(false);
     }
   };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-bio-glow-green";
+    if (score >= 50) return "text-amber-400";
+    return "text-red-400";
+  };
+
+  const primaryDet = result && result.detections && result.detections.length > 0 ? result.detections[0] : null;
+  const isHumanDetected = primaryDet?.plant_name === "Human Face";
 
   return (
     <div className="flex-1 min-h-screen overflow-y-auto px-8 py-10 relative">
@@ -216,10 +244,10 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
         {/* Title */}
         <div className="flex flex-col gap-1.5">
           <h2 className="text-3xl font-extrabold tracking-tight text-white font-sans">
-            AI Scanner Engine
+            AI Vision Diagnostics
           </h2>
           <p className="text-sm text-slate-400 font-light">
-            Upload an image of your plant to identify the species with YOLOv8 computer vision.
+            Scan leaves to detect species and classify foliar health diseases using YOLOv8.
           </p>
         </div>
 
@@ -266,10 +294,11 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                     className="max-h-[400px] w-auto rounded-2xl object-contain border border-bio-card-border"
                   />
                   
-                  {/* Bounding box overlay if detection succeeded */}
+                  {/* Bounding box overlay with red/green states */}
                   {result && result.detections && result.detections.map((det, index) => {
                     const imgW = naturalDimensions.width;
                     const imgH = naturalDimensions.height;
+                    const isHuman = det.plant_name === "Human Face";
                     
                     // Box coordinates
                     const { x1, y1, x2, y2 } = det.box;
@@ -281,10 +310,16 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                     return (
                       <div 
                         key={index}
-                        className="absolute border-2 border-bio-emerald box-glow flex flex-col justify-start items-start pointer-events-none"
+                        className={`absolute border-2 flex flex-col justify-start items-start pointer-events-none ${
+                          isHuman 
+                            ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]" 
+                            : "border-bio-emerald box-glow"
+                        }`}
                         style={{ left, top, width, height }}
                       >
-                        <span className="bg-bio-emerald text-bio-black text-[10px] font-bold px-1.5 py-0.5 rounded-br-md pointer-events-none select-none uppercase tracking-wide">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-br-md pointer-events-none select-none uppercase tracking-wide ${
+                          isHuman ? "bg-red-500 text-white" : "bg-bio-emerald text-bio-black"
+                        }`}>
                           {det.plant_name} ({det.confidence}%)
                         </span>
                       </div>
@@ -343,55 +378,105 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
             )}
 
             {/* Detection Result Card */}
-            {!loading && result && result.detections && (
+            {!loading && result && result.detections && primaryDet && (
               <motion.div 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-panel p-6 rounded-3xl flex flex-col gap-6"
+                className="glass-panel p-6 rounded-3xl flex flex-col gap-5"
               >
+                
+                {/* 1. Human Detected Warning Banner */}
+                {isHumanDetected && (
+                  <div className="p-4 rounded-2xl border border-red-500/25 bg-red-950/15 text-red-400 text-xs flex gap-2.5 items-start">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-red-400 mt-0.5 animate-pulse" />
+                    <div>
+                      <span className="font-bold text-sm block">🚨 Human Face Detected!</span>
+                      <p className="mt-1 font-light leading-normal">
+                        BioByte is designed for botanical species. Bypassing plant classifier. Please upload a clear image of a Money Plant, Rose, Mint, or Hibiscus leaves.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <h3 className="text-lg font-bold text-white border-b border-bio-card-border/30 pb-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-bio-card-border/20 pb-3">
                     Diagnostic Output
                   </h3>
                   
-                  {result.detections.length === 0 ? (
-                    <div className="py-4 text-center text-sm text-slate-400">
-                      No plants detected. Please upload a clearer image.
+                  <div className="flex flex-col gap-4 mt-4">
+                    {/* Species and Conf */}
+                    <div className="flex justify-between items-center bg-bio-black/45 p-4 rounded-2xl border border-bio-card-border/10">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Classification</p>
+                        <p className={`text-xl font-black mt-1 ${isHumanDetected ? "text-red-400" : "text-white"}`}>
+                          {primaryDet.plant_name}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Confidence</p>
+                        <p className={`text-2xl font-black mt-1 ${isHumanDetected ? "text-red-400" : "text-bio-light-emerald glow-text"}`}>
+                          {primaryDet.confidence}%
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-4 mt-4">
-                      {result.detections.map((det, i) => (
-                        <div key={i} className="flex justify-between items-center bg-bio-emerald/5 p-4 rounded-2xl border border-bio-emerald/10">
-                          <div>
-                            <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Detected Species</p>
-                            <p className="text-2xl font-black text-white mt-1">{det.plant_name}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Confidence</p>
-                            <p className="text-3xl font-black text-bio-light-emerald mt-1 glow-text">{det.confidence}%</p>
-                          </div>
-                        </div>
-                      ))}
 
-                      {/* Add to Gardens Button */}
+                    {/* Plant Health & Disease Telemetry */}
+                    {!isHumanDetected && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Health Score */}
+                        <div className="bg-bio-black/45 p-4 rounded-2xl border border-bio-card-border/10 flex flex-col justify-center">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold flex items-center gap-1">
+                            <Heart className="w-3 h-3 text-red-400" />
+                            Health Score
+                          </span>
+                          <span className={`text-3xl font-black mt-1 ${getScoreColor(primaryDet.health_score)}`}>
+                            {primaryDet.health_score}%
+                          </span>
+                        </div>
+                        {/* Disease */}
+                        <div className="bg-bio-black/45 p-4 rounded-2xl border border-bio-card-border/10 flex flex-col justify-center">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold flex items-center gap-1">
+                            <Activity className="w-3 h-3 text-bio-emerald" />
+                            Diagnosis
+                          </span>
+                          <span className={`text-sm font-extrabold mt-1 truncate ${
+                            primaryDet.disease_detected.includes("Healthy") 
+                              ? "text-bio-glow-green" 
+                              : "text-amber-400 animate-pulse"
+                          }`}>
+                            {primaryDet.disease_detected}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add to Gardens Button (Disabled for humans) */}
+                    {isHumanDetected ? (
+                      <button
+                        disabled
+                        className="py-3 bg-slate-900 border border-slate-800 text-slate-650 font-bold rounded-xl text-xs cursor-not-allowed select-none"
+                      >
+                        Cannot add humans to garden dashboard
+                      </button>
+                    ) : (
                       <button
                         onClick={() => {
-                          setCustomName(result.detections[0].plant_name);
+                          setCustomName(primaryDet.plant_name);
                           setShowAddModal(true);
                         }}
-                        className="py-3 bg-bio-emerald/10 hover:bg-bio-emerald/20 border border-bio-emerald/30 text-bio-light-emerald font-bold rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.01]"
+                        className="py-3 bg-bio-emerald/10 hover:bg-bio-emerald/20 border border-bio-emerald/30 text-bio-light-emerald font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.01]"
                       >
-                        <Plus className="w-5 h-5" />
-                        Add to My Plants
+                        <Plus className="w-4 h-4" />
+                        Add to Gardens Dashboard
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                {/* Smart Q&A recommendation system */}
+                {/* Smart Q&A recommended questions */}
                 {result.recommended_questions && result.recommended_questions.length > 0 && (
                   <div className="flex flex-col gap-4 mt-2">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-t border-bio-card-border/10 pt-4">
                       <HelpCircle className="w-4 h-4 text-bio-emerald" />
                       Smart Recommended Care
                     </h4>
@@ -410,9 +495,9 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                             >
                               <span>{q.question}</span>
                               {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-bio-emerald shrink-0" />
+                                <ChevronDown className="w-4 h-4 text-bio-emerald shrink-0 rotate-180 transition-transform" />
                               ) : (
-                                <ChevronDown className="w-4 h-4 text-bio-emerald shrink-0" />
+                                <ChevronDown className="w-4 h-4 text-bio-emerald shrink-0 transition-transform" />
                               )}
                             </button>
                             
@@ -490,21 +575,6 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                     onChange={(e) => setCustomName(e.target.value)}
                     placeholder="e.g. My Balcony Rose"
                   />
-                </div>
-
-                {/* Health Status */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Initial Health Status</label>
-                  <select 
-                    className="glass-input px-4 py-3 rounded-xl text-sm"
-                    value={plantHealth}
-                    onChange={(e) => setPlantHealth(e.target.value)}
-                  >
-                    <option value="Excellent">Excellent (Healthy foliage)</option>
-                    <option value="Good">Good (Growing fine)</option>
-                    <option value="Needs Attention">Needs Attention (Wilting / Dry)</option>
-                    <option value="Critical">Critical (Severe condition)</option>
-                  </select>
                 </div>
               </div>
 

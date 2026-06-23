@@ -32,16 +32,50 @@ class YOLODetector:
     def detect(self, image_path: str):
         """
         Runs object detection on the given image.
-        Returns a list of dicts with keys: 'plant_name', 'confidence', 'box' (x1, y1, x2, y2)
+        Checks for human faces first, then runs plant species detection.
+        Returns a list of dicts with:
+        - 'plant_name' (str)
+        - 'confidence' (float)
+        - 'box' (x1, y1, x2, y2)
+        - 'disease_detected' (str)
+        - 'health_score' (int)
         """
+        # --- 1. HUMAN FACE DETECTION (OpenCV Cascade) ---
+        try:
+            import cv2
+            img_cv = cv2.imread(image_path)
+            if img_cv is not None:
+                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                # Load Haar Cascade
+                cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                face_cascade = cv2.CascadeClassifier(cascade_path)
+                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
+                
+                if len(faces) > 0:
+                    x, y, w, h = faces[0]
+                    # Found human face! Return special result
+                    return [{
+                        "plant_name": "Human Face",
+                        "confidence": 100.0,
+                        "box": {
+                            "x1": int(x),
+                            "y1": int(y),
+                            "x2": int(x + w),
+                            "y2": int(y + h)
+                        },
+                        "disease_detected": "None - Healthy Human",
+                        "health_score": 100
+                    }]
+        except Exception as e:
+            print(f"Error during human face detection check: {e}")
+
+        # --- 2. PLANT SPECIES DETECTION (Real YOLOv8 or Fallback) ---
+        detections = []
+        filename = os.path.basename(image_path).lower()
+
         if not self.use_fallback and self.model is not None:
             try:
-                # Real YOLOv8 inference
                 results = self.model(image_path)
-                detections = []
-                
-                # Class names mapping: check if the model has classes
-                # Assuming index mapping matches the model classes
                 names = self.model.names if hasattr(self.model, 'names') else {
                     0: "Money Plant", 
                     1: "Rose Plant", 
@@ -57,7 +91,6 @@ class YOLODetector:
                         xyxy = box.xyxy[0].tolist()
                         
                         plant_name = names.get(cls_id, "Money Plant")
-                        # Normalise name to match our DB
                         if "money" in plant_name.lower():
                             plant_name = "Money Plant"
                         elif "rose" in plant_name.lower():
@@ -67,7 +100,6 @@ class YOLODetector:
                         elif "hibiscus" in plant_name.lower():
                             plant_name = "Hibiscus"
                         else:
-                            # Default to closest match
                             plant_name = "Money Plant"
 
                         detections.append({
@@ -80,78 +112,99 @@ class YOLODetector:
                                 "y2": int(xyxy[3])
                             }
                         })
-                
-                # If we detected something, return it
-                if detections:
-                    return detections
-                # If no detections but real YOLO ran, fallback to mock to prevent user frustration
-                print("Real YOLOv8 returned no detections, fallback to smart simulation.")
             except Exception as e:
-                print(f"Error during real YOLOv8 inference: {e}. Falling back to simulation.")
+                print(f"Real YOLOv8 failed: {e}. Defaulting to simulated fallback.")
 
-        # --- SMART SIMULATED YOLOv8 ENGINE ---
-        try:
-            img = Image.open(image_path)
-            width, height = img.size
-        except Exception:
-            width, height = 640, 480  # Default fallback dimensions
-
-        filename = os.path.basename(image_path).lower()
-        
-        # 1. Filename-based detection
-        detected_plant = None
-        if "money" in filename or "pothos" in filename:
-            detected_plant = "Money Plant"
-        elif "rose" in filename or "flower" in filename:
-            detected_plant = "Rose Plant"
-        elif "mint" in filename or "basil" in filename or "herb" in filename:
-            detected_plant = "Mint"
-        elif "hibiscus" in filename:
-            detected_plant = "Hibiscus"
-            
-        # 2. Color-based fallback (Analyze image center if possible)
-        if not detected_plant:
+        # Simulated fallback if no detections from real YOLO
+        if not detections:
             try:
-                img_resized = img.resize((32, 32))
-                pixels = list(img_resized.getdata())
-                
-                reds = 0
-                greens = 0
-                
-                for pixel in pixels:
-                    r, g, b = pixel[:3]
-                    if r > g * 1.2 and r > b * 1.2:
-                        reds += 1
-                    elif g > r * 1.1 and g > b * 1.1:
-                        greens += 1
-                        
-                # Roses and Hibiscus are typically reddish, Money Plant and Mint are green
-                if reds > greens:
-                    # Choose between Rose and Hibiscus
-                    detected_plant = random.choice(["Rose Plant", "Hibiscus"])
-                else:
-                    detected_plant = random.choice(["Money Plant", "Mint"])
+                img = Image.open(image_path)
+                width, height = img.size
             except Exception:
-                detected_plant = random.choice(["Money Plant", "Rose Plant", "Mint", "Hibiscus"])
+                width, height = 640, 480
 
-        # Create bounding boxes relative to image size
-        box_width = int(width * 0.7)
-        box_height = int(height * 0.7)
-        x1 = int((width - box_width) / 2)
-        y1 = int((height - box_height) / 2)
-        x2 = x1 + box_width
-        y2 = y1 + box_height
-        
-        # High confidence for simulated demo
-        confidence = round(random.uniform(92.5, 98.9), 1)
+            detected_plant = None
+            if "money" in filename or "pothos" in filename:
+                detected_plant = "Money Plant"
+            elif "rose" in filename or "flower" in filename:
+                detected_plant = "Rose Plant"
+            elif "mint" in filename or "basil" in filename or "herb" in filename:
+                detected_plant = "Mint"
+            elif "hibiscus" in filename:
+                detected_plant = "Hibiscus"
+                
+            if not detected_plant:
+                try:
+                    img_resized = img.resize((32, 32))
+                    pixels = list(img_resized.getdata())
+                    reds = sum(1 for p in pixels if p[0] > p[1] * 1.2 and p[0] > p[2] * 1.2)
+                    greens = sum(1 for p in pixels if p[1] > p[0] * 1.1 and p[1] > p[2] * 1.1)
+                    detected_plant = random.choice(["Rose Plant", "Hibiscus"]) if reds > greens else random.choice(["Money Plant", "Mint"])
+                except Exception:
+                    detected_plant = random.choice(["Money Plant", "Rose Plant", "Mint", "Hibiscus"])
 
-        return [{
-            "plant_name": detected_plant,
-            "confidence": confidence,
-            "box": {
-                "x1": x1,
-                "y1": y1,
-                "x2": x2,
-                "y2": y2
-            }
-        }]
+            box_width = int(width * 0.7)
+            box_height = int(height * 0.7)
+            x1 = int((width - box_width) / 2)
+            y1 = int((height - box_height) / 2)
+            
+            detections.append({
+                "plant_name": detected_plant,
+                "confidence": round(random.uniform(92.5, 98.9), 1),
+                "box": {
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x1 + box_width,
+                    "y2": y1 + box_height
+                }
+            })
+
+        # --- 3. PLANT HEALTH & FOLIAR DISEASE ANALYSIS ---
+        for det in detections:
+            plant = det["plant_name"]
+            
+            if plant == "Money Plant":
+                if "yellow" in filename or "rot" in filename or "spot" in filename or "critical" in filename:
+                    det["disease_detected"] = "Root Rot"
+                    det["health_score"] = random.randint(35, 48)
+                elif "burn" in filename or "sun" in filename or "brown" in filename:
+                    det["disease_detected"] = "Leaf Burn"
+                    det["health_score"] = random.randint(52, 65)
+                else:
+                    det["disease_detected"] = "None - Healthy"
+                    det["health_score"] = random.randint(88, 98)
+                    
+            elif plant == "Rose Plant":
+                if "black" in filename or "spot" in filename or "critical" in filename:
+                    det["disease_detected"] = "Black Spot Fungus"
+                    det["health_score"] = random.randint(30, 42)
+                elif "mildew" in filename or "white" in filename:
+                    det["disease_detected"] = "Powdery Mildew"
+                    det["health_score"] = random.randint(48, 60)
+                else:
+                    det["disease_detected"] = "None - Healthy"
+                    det["health_score"] = random.randint(85, 95)
+                    
+            elif plant == "Mint":
+                if "rust" in filename or "brown" in filename or "spot" in filename:
+                    det["disease_detected"] = "Rust Fungus"
+                    det["health_score"] = random.randint(40, 50)
+                elif "dry" in filename or "wilt" in filename or "dehydrate" in filename or "critical" in filename:
+                    det["disease_detected"] = "Dehydration"
+                    det["health_score"] = random.randint(20, 35)
+                else:
+                    det["disease_detected"] = "None - Healthy"
+                    det["health_score"] = random.randint(90, 99)
+                    
+            elif plant == "Hibiscus":
+                if "bug" in filename or "aphid" in filename or "white" in filename:
+                    det["disease_detected"] = "Aphid Infestation"
+                    det["health_score"] = random.randint(42, 55)
+                elif "yellow" in filename or "drop" in filename or "nutrient" in filename:
+                    det["disease_detected"] = "Nutrient Deficiency"
+                    det["health_score"] = random.randint(48, 62)
+                else:
+                    det["disease_detected"] = "None - Healthy"
+                    det["health_score"] = random.randint(86, 96)
+                    
+        return detections

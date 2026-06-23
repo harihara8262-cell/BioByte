@@ -24,6 +24,11 @@ class UserPlantBase(BaseModel):
     last_fertilized: str
     notes: Optional[str] = None
     image_url: Optional[str] = None
+    health_score: Optional[int] = 100
+    disease_detected: Optional[str] = "None - Healthy"
+    height_cm: Optional[float] = 10.0
+    growth_stage: Optional[str] = "Vegetative"
+    age_days: Optional[int] = 1
 
 class UserPlantCreate(UserPlantBase):
     pass
@@ -35,6 +40,11 @@ class UserPlantUpdate(BaseModel):
     last_fertilized: Optional[str] = None
     notes: Optional[str] = None
     image_url: Optional[str] = None
+    health_score: Optional[int] = None
+    disease_detected: Optional[str] = None
+    height_cm: Optional[float] = None
+    growth_stage: Optional[str] = None
+    age_days: Optional[int] = None
 
 class UserPlant(UserPlantBase):
     id: int
@@ -78,6 +88,8 @@ class DetectionResult(BaseModel):
     plant_name: str
     confidence: float
     box: DetectionBox
+    disease_detected: str
+    health_score: int
 
 class DetectResponse(BaseModel):
     success: bool
@@ -110,3 +122,24 @@ class AnalyticsResponse(BaseModel):
     healthStatus: List[AnalyticsHealthStatus]
     weeklyActivity: List[AnalyticsWeeklyActivity]
     upcomingTasks: List[AnalyticsUpcomingTask]
+
+# Weather response schemas
+class WeatherResponse(BaseModel):
+    temperature: float
+    humidity: int
+    rain_probability: int
+    sunlight_intensity: str
+    forecast: str
+    recommendation: str
+
+# Community response schemas
+class CommunityPost(BaseModel):
+    id: int
+    author: str
+    avatar: str
+    role: str
+    content: str
+    likes: int
+    comments_count: int
+    rating: float
+    timestamp: str

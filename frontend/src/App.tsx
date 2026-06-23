@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import Sidebar from "./components/Sidebar";
-import Home from "./pages/Home";
+import Home from "./App.tsx"; // wait, let's keep references correct
+import HomeView from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Scanner from "./pages/Scanner";
 import MyPlants from "./pages/MyPlants";
 import CalendarView from "./pages/CalendarView";
 import Notifications from "./pages/Notifications";
+import Analytics from "./pages/Analytics";
+import Community from "./pages/Community";
 import Settings from "./pages/Settings";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -26,7 +29,9 @@ export default function App() {
       case "notifications":
         return <Notifications />;
       case "analytics":
-        return <AnalyticsPage />;
+        return <Analytics />;
+      case "community":
+        return <Community />;
       case "settings":
         return <Settings />;
       default:
@@ -34,8 +39,6 @@ export default function App() {
     }
   };
 
-  // Inline small wrapper for Analytics to avoid importing from non-existent file
-  // (We created Analytics.tsx which we import, wait! Let's import it directly!)
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bio-black select-none text-slate-100 font-sans">
       <AnimatePresence mode="wait">
@@ -47,7 +50,7 @@ export default function App() {
             exit={{ opacity: 0 }}
             className="w-full h-full"
           >
-            <Home setActiveTab={setActiveTab} />
+            <HomeView setActiveTab={setActiveTab} />
           </motion.div>
         ) : (
           <motion.div
@@ -83,10 +86,4 @@ export default function App() {
       </AnimatePresence>
     </div>
   );
-}
-
-// Inline Analytics Page wrapper to map cleanly
-import Analytics from "./pages/Analytics";
-function AnalyticsPage() {
-  return <Analytics />;
 }

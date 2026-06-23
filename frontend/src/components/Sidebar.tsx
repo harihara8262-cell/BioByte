@@ -7,7 +7,8 @@ import {
   Bell, 
   BarChart2, 
   Settings,
-  Flame
+  Flame,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -51,6 +52,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       badge: notifCount > 0 ? notifCount : undefined 
     },
     { id: "analytics", label: "Analytics", icon: BarChart2 },
+    { id: "community", label: "Community", icon: Users },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -124,7 +126,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           <div className="w-2 h-2 rounded-full bg-bio-glow-green animate-ping" />
           <span className="text-xs text-slate-500">FastAPI Server Connected</span>
         </div>
-        <span className="text-[10px] text-slate-600">BioByte v1.0.0</span>
+        <span className="text-[10px] text-slate-600">BioByte v1.1.0</span>
       </div>
     </div>
   );

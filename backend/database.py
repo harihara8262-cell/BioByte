@@ -16,6 +16,12 @@ def init_db():
     # Enable foreign keys
     cursor.execute("PRAGMA foreign_keys = ON;")
 
+    # Drop existing tables to enforce the updated schema
+    cursor.execute("DROP TABLE IF EXISTS care_logs;")
+    cursor.execute("DROP TABLE IF EXISTS user_plants;")
+    cursor.execute("DROP TABLE IF EXISTS plants;")
+    cursor.execute("DROP TABLE IF EXISTS plant_questions;")
+
     # 1. Core Plants Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS plants (
@@ -29,7 +35,7 @@ def init_db():
     );
     """)
 
-    # 2. User's Active Plants (My Plants)
+    # 2. User's Active Plants (My Plants with Digital Twin parameters)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS user_plants (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,6 +47,11 @@ def init_db():
         added_at TEXT NOT NULL, -- ISO Date
         image_url TEXT,
         notes TEXT,
+        health_score INTEGER DEFAULT 100,
+        disease_detected TEXT DEFAULT 'None - Healthy',
+        height_cm REAL DEFAULT 10.0,
+        growth_stage TEXT DEFAULT 'Vegetative',
+        age_days INTEGER DEFAULT 1,
         FOREIGN KEY (plant_id) REFERENCES plants (id) ON DELETE CASCADE
     );
     """)
@@ -140,97 +151,103 @@ def init_db():
         """, q)
 
     # --- Seed Sample User Plants (if none exist) ---
-    cursor.execute("SELECT COUNT(*) FROM user_plants;")
-    user_plants_count = cursor.fetchone()[0]
+    now = datetime.now()
+    
+    # Get plant IDs
+    cursor.execute("SELECT id FROM plants WHERE name = 'Money Plant';")
+    money_id = cursor.fetchone()[0]
+    cursor.execute("SELECT id FROM plants WHERE name = 'Rose Plant';")
+    rose_id = cursor.fetchone()[0]
+    cursor.execute("SELECT id FROM plants WHERE name = 'Mint';")
+    mint_id = cursor.fetchone()[0]
 
-    if user_plants_count == 0:
-        now = datetime.now()
-        # Seed 3 plants:
-        # 1. Money Plant (Healthy)
-        # 2. Rose Plant (Healthy)
-        # 3. Mint (Needs Attention - watered 4 days ago, water due is 3 days!)
-        
-        # Get plant IDs
-        cursor.execute("SELECT id FROM plants WHERE name = 'Money Plant';")
-        money_id = cursor.fetchone()[0]
-        cursor.execute("SELECT id FROM plants WHERE name = 'Rose Plant';")
-        rose_id = cursor.fetchone()[0]
-        cursor.execute("SELECT id FROM plants WHERE name = 'Mint';")
-        mint_id = cursor.fetchone()[0]
+    # Insert user plants with Health Score, Disease Detected, and virtual twins parameters
+    cursor.execute("""
+    INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes, health_score, disease_detected, height_cm, growth_stage, age_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, (
+        money_id, 
+        "Golden Pothos", 
+        "Excellent", 
+        (now - timedelta(days=2)).isoformat(), 
+        (now - timedelta(days=12)).isoformat(), 
+        (now - timedelta(days=15)).isoformat(),
+        "Hanging in the living room corner. Growing beautifully!",
+        95,
+        "None - Healthy",
+        18.4,
+        "Vegetative",
+        15
+    ))
+    p1_id = cursor.lastrowid
 
-        # Insert user plants
-        cursor.execute("""
-        INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-        """, (
-            money_id, 
-            "Golden Pothos", 
-            "Excellent", 
-            (now - timedelta(days=2)).isoformat(), 
-            (now - timedelta(days=12)).isoformat(), 
-            (now - timedelta(days=15)).isoformat(),
-            "Hanging in the living room corner. Growing beautifully!"
-        ))
-        p1_id = cursor.lastrowid
+    cursor.execute("""
+    INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes, health_score, disease_detected, height_cm, growth_stage, age_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, (
+        rose_id, 
+        "Ruby Crimson", 
+        "Good", 
+        (now - timedelta(days=1)).isoformat(), 
+        (now - timedelta(days=5)).isoformat(), 
+        (now - timedelta(days=8)).isoformat(),
+        "Balcony plant. Getting full morning sun. First buds appearing.",
+        82,
+        "None - Healthy",
+        35.2,
+        "Blooming",
+        8
+    ))
+    p2_id = cursor.lastrowid
 
-        cursor.execute("""
-        INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-        """, (
-            rose_id, 
-            "Ruby Crimson", 
-            "Good", 
-            (now - timedelta(days=1)).isoformat(), 
-            (now - timedelta(days=5)).isoformat(), 
-            (now - timedelta(days=8)).isoformat(),
-            "Balcony plant. Getting full morning sun. First buds appearing."
-        ))
-        p2_id = cursor.lastrowid
+    cursor.execute("""
+    INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes, health_score, disease_detected, height_cm, growth_stage, age_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, (
+        mint_id, 
+        "Fresh Mojito", 
+        "Needs Attention", 
+        (now - timedelta(days=4)).isoformat(), # 4 days ago (needs watering every 3 days!)
+        (now - timedelta(days=22)).isoformat(), # 22 days ago (needs fertilizing every 21 days!)
+        (now - timedelta(days=25)).isoformat(),
+        "Kitchen sill. Some lower leaves look slightly dry.",
+        45,
+        "Rust Fungus",
+        12.1,
+        "Vegetative",
+        25
+    ))
+    p3_id = cursor.lastrowid
 
-        cursor.execute("""
-        INSERT INTO user_plants (plant_id, custom_name, health_status, last_watered, last_fertilized, added_at, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?);
-        """, (
-            mint_id, 
-            "Fresh Mojito", 
-            "Needs Attention", 
-            (now - timedelta(days=4)).isoformat(), # 4 days ago (needs watering every 3 days!)
-            (now - timedelta(days=22)).isoformat(), # 22 days ago (needs fertilizing every 21 days!)
-            (now - timedelta(days=25)).isoformat(),
-            "Kitchen sill. Some lower leaves look slightly dry."
-        ))
-        p3_id = cursor.lastrowid
+    # --- Seed Care Logs (For Analytics Charts) ---
+    log_actions = [
+        (p1_id, "Watered", (now - timedelta(days=14)).isoformat(), "Regular watering"),
+        (p1_id, "Watered", (now - timedelta(days=8)).isoformat(), "Regular watering"),
+        (p1_id, "Watered", (now - timedelta(days=2)).isoformat(), "Regular watering"),
+        (p1_id, "Fertilized", (now - timedelta(days=12)).isoformat(), "Monthly liquid food"),
 
-        # --- Seed Care Logs (For Analytics Charts) ---
-        # Let's seed waterings for the past two weeks to make the graph look alive
-        log_actions = [
-            (p1_id, "Watered", (now - timedelta(days=14)).isoformat(), "Regular watering"),
-            (p1_id, "Watered", (now - timedelta(days=8)).isoformat(), "Regular watering"),
-            (p1_id, "Watered", (now - timedelta(days=2)).isoformat(), "Regular watering"),
-            (p1_id, "Fertilized", (now - timedelta(days=12)).isoformat(), "Monthly liquid food"),
+        (p2_id, "Watered", (now - timedelta(days=7)).isoformat(), "Deep watering"),
+        (p2_id, "Watered", (now - timedelta(days=4)).isoformat(), "Deep watering"),
+        (p2_id, "Watered", (now - timedelta(days=1)).isoformat(), "Deep watering"),
+        (p2_id, "Fertilized", (now - timedelta(days=5)).isoformat(), "Rose bloom mix"),
 
-            (p2_id, "Watered", (now - timedelta(days=7)).isoformat(), "Deep watering"),
-            (p2_id, "Watered", (now - timedelta(days=4)).isoformat(), "Deep watering"),
-            (p2_id, "Watered", (now - timedelta(days=1)).isoformat(), "Deep watering"),
-            (p2_id, "Fertilized", (now - timedelta(days=5)).isoformat(), "Rose bloom mix"),
+        (p3_id, "Watered", (now - timedelta(days=19)).isoformat(), "Moistened soil"),
+        (p3_id, "Watered", (now - timedelta(days=16)).isoformat(), "Moistened soil"),
+        (p3_id, "Watered", (now - timedelta(days=13)).isoformat(), "Moistened soil"),
+        (p3_id, "Watered", (now - timedelta(days=10)).isoformat(), "Moistened soil"),
+        (p3_id, "Watered", (now - timedelta(days=7)).isoformat(), "Moistened soil"),
+        (p3_id, "Watered", (now - timedelta(days=4)).isoformat(), "Moistened soil"),
+        (p3_id, "Fertilized", (now - timedelta(days=22)).isoformat(), "Organic compost tea")
+    ]
 
-            (p3_id, "Watered", (now - timedelta(days=19)).isoformat(), "Moistened soil"),
-            (p3_id, "Watered", (now - timedelta(days=16)).isoformat(), "Moistened soil"),
-            (p3_id, "Watered", (now - timedelta(days=13)).isoformat(), "Moistened soil"),
-            (p3_id, "Watered", (now - timedelta(days=10)).isoformat(), "Moistened soil"),
-            (p3_id, "Watered", (now - timedelta(days=7)).isoformat(), "Moistened soil"),
-            (p3_id, "Watered", (now - timedelta(days=4)).isoformat(), "Moistened soil"),
-            (p3_id, "Fertilized", (now - timedelta(days=22)).isoformat(), "Organic compost tea")
-        ]
-
-        cursor.executemany("""
-        INSERT INTO care_logs (user_plant_id, action_type, timestamp, notes)
-        VALUES (?, ?, ?, ?);
-        """, log_actions)
+    cursor.executemany("""
+    INSERT INTO care_logs (user_plant_id, action_type, timestamp, notes)
+    VALUES (?, ?, ?, ?);
+    """, log_actions)
 
     conn.commit()
     conn.close()
-    print("Database initialized successfully!")
+    print("Database upgraded and initialized successfully with Digital Twin data!")
 
 if __name__ == "__main__":
     init_db()
