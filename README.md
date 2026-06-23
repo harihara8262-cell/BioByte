@@ -26,7 +26,7 @@ Once the application servers are running, access them via:
 ### Backend
 * **Server:** Python FastAPI
 * **Database:** SQLite (Relational structure for plant templates, user gardens, notes, and activity care logging)
-* **Computer Vision:** YOLOv8 (Detects *Money Plant*, *Rose Plant*, *Mint*, and *Hibiscus* with automatic bounding boxes; falls back to an RGB color histogram simulation if weights aren't locally present)
+* **Computer Vision:** ByteAI (Detects *Money Plant*, *Rose Plant*, *Mint*, and *Hibiscus* with automatic bounding boxes; falls back to an RGB color histogram simulation if weights aren't locally present)
 
 ---
 
@@ -39,7 +39,7 @@ BioByte/
 │   ├── database.py          # SQLite connections, schema initialization, and seeding script
 │   ├── models.py            # Pydantic schema declarations
 │   ├── question_engine.py   # Care recommended Q&As SQLite query logic
-│   ├── yolo_detector.py     # YOLOv8 engine (Simulated fallback / Real ultralytics pipeline)
+│   ├── yolo_detector.py     # ByteAI engine (Simulated fallback / Real ultralytics pipeline)
 │   ├── plants.db            # Local SQLite database file (ignored in git)
 │   └── uploads/             # Directory for uploaded leaf scans (git ignored except placeholder)
 ├── frontend/
@@ -49,7 +49,7 @@ BioByte/
 │   │   ├── pages/
 │   │   │   ├── Home.tsx     # Canvas particle physics welcome screen
 │   │   │   ├── Dashboard.tsx# Central greenhouse telemetry & database overview
-│   │   │   ├── Scanner.tsx  # YOLOv8 upload portal & smart Q&A recommended panel
+│   │   │   ├── Scanner.tsx  # ByteAI upload portal & smart Q&A recommended panel
 │   │   │   ├── MyPlants.tsx # Custom plant dashboard card grid & care actions
 │   │   │   ├── Analytics.tsx# Recharts visual reports
 │   │   │   ├── CalendarView.tsx # Custom monthly schedule tracker
@@ -99,8 +99,8 @@ npm run dev
 
 ---
 
-## 🌿 YOLOv8 Object Detection Engine Details
-The scanner uses **YOLOv8** to identify four target houseplant species:
+## 🌿 ByteAI Object Detection Engine Details
+The scanner uses **ByteAI** to identify four target houseplant species:
 1. **Money Plant** (Pothos)
 2. **Rose Plant**
 3. **Mint**

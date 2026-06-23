@@ -110,7 +110,7 @@ export default function Dashboard({ setActiveTab }: DashboardProps) {
   const systemMetrics = [
     { label: "Nursery Soil Temp", value: "23.4°C", icon: Thermometer, color: "text-bio-emerald", desc: "Optimal bounds 18-28°C" },
     { label: "Ambient Humidity", value: weather ? `${weather.humidity}%` : "60%", icon: Droplets, color: "text-blue-450", desc: "Ideal for tropical growth" },
-    { label: "AI Engine Status", value: "Active", icon: Cpu, color: "text-bio-glow-green animate-pulse", desc: "YOLOv8 & Weather AI active" },
+    { label: "AI Engine Status", value: "Active", icon: Cpu, color: "text-bio-glow-green animate-pulse", desc: "ByteAI & Weather AI active" },
     { label: "Daily Sunlight Average", value: weather ? weather.sunlight_intensity : "High", icon: Sun, color: "text-amber-450", desc: "Optimal solar exposure" }
   ];
 

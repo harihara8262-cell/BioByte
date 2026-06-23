@@ -143,7 +143,7 @@ export default function Home({ setActiveTab }: HomeProps) {
           transition={{ duration: 1, delay: 0.4 }}
           className="text-lg md:text-xl text-slate-400 max-w-2xl font-light tracking-wide leading-relaxed"
         >
-          An intelligent plant monitoring and care system. Scan with YOLOv8 computer vision and unlock recommendations for Money Plants, Roses, Mint, and Hibiscus.
+          An intelligent plant monitoring and care assistant. Scan with ByteAI computer vision and unlock personalized recommendations for Money Plants, Roses, Mint, and Hibiscus.
         </motion.p>
 
         {/* Action Buttons */}
@@ -184,7 +184,7 @@ export default function Home({ setActiveTab }: HomeProps) {
             <div className="p-3 bg-bio-emerald/10 text-bio-emerald rounded-xl group-hover:scale-110 transition-transform">
               <Brain className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white">YOLOv8 Engine</h3>
+            <h3 className="text-lg font-bold text-white">ByteAI Engine</h3>
             <p className="text-sm text-slate-400 font-light">
               Detect species instantly with high confidence bounding boxes.
             </p>

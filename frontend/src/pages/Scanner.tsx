@@ -70,7 +70,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
 
   const loadingMessages = [
     "Uploading plant image...",
-    "Initializing YOLOv8 object detection engine...",
+    "Initializing ByteAI object detection engine...",
     "Extracting foliage pixel grids...",
     "Running CNN neural classification...",
     "Checking for human biometrics...",
@@ -149,7 +149,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to process image with YOLOv8. Ensure backend is running.");
+        throw new Error("Failed to process image with ByteAI. Ensure backend is running.");
       }
 
       const data = await res.json();
@@ -247,7 +247,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
             AI Vision Diagnostics
           </h2>
           <p className="text-sm text-slate-400 font-light">
-            Scan leaves to detect species and classify foliar health diseases using YOLOv8.
+            Scan leaves to detect species and classify foliar health diseases using ByteAI.
           </p>
         </div>
 
@@ -337,7 +337,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                   className="flex-1 py-4 bg-gradient-to-r from-bio-emerald to-emerald-600 hover:from-emerald-500 hover:to-bio-light-emerald text-bio-black font-bold rounded-2xl flex items-center justify-center gap-2.5 shadow-neon-emerald hover:shadow-neon-glow transition-all duration-300 hover:scale-[1.02]"
                 >
                   <Cpu className="w-5 h-5 text-bio-black" />
-                  Analyze with YOLOv8 Engine
+                  Analyze with ByteAI Engine
                 </button>
                 <button 
                   onClick={() => {
@@ -533,7 +533,7 @@ export default function Scanner({ setActiveTab }: ScannerProps) {
                 <div>
                   <h4 className="text-lg font-bold text-slate-300">Awaiting Analysis</h4>
                   <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
-                    Once you upload and run, the YOLOv8 AI diagnostics will populate here.
+                    Once you upload and run, the ByteAI AI diagnostics will populate here.
                   </p>
                 </div>
               </div>
